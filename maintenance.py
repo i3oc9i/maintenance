@@ -126,20 +126,42 @@ def do_volta() -> bool:
         return False
 
     result = run(["volta", "list", "all", "--format", "plain"], capture_output=True, text=True)
-    tools = []
+    tools: dict[str, str] = {}  # name → installed version
     for line in result.stdout.splitlines():
         parts = line.split()
         if len(parts) >= 2 and parts[0] == "package":
-            name = parts[1].split("@")[0]
-            if name:
-                tools.append(name)
+            token = parts[1]  # e.g. "typescript@5.9.3"
+            if "@" in token:
+                name, ver = token.split("@", 1)
+                if name:
+                    tools[name] = ver
 
     if not tools:
         print("  No Volta tools installed.")
         return True
 
-    print(f"  Updating {len(tools)} tools: {', '.join(tools)}")
-    run(["volta", "install", *tools], check=True)
+    print(f"  Checking {len(tools)} tools for updates...")
+    outdated: list[str] = []
+    for name, installed in tools.items():
+        latest_result = run(
+            ["npm", "view", name, "version"],
+            capture_output=True, text=True,
+        )
+        latest = latest_result.stdout.strip()
+        if not latest or latest_result.returncode != 0:
+            print(f"    {name} {Color.DIM}{installed} → ??? (lookup failed, reinstalling){Color.RESET}")
+            outdated.append(name)
+        elif latest != installed:
+            print(f"    {name} {Color.BOLD_YELLOW}{installed} → {latest}{Color.RESET}")
+            outdated.append(name)
+        else:
+            print(f"    {name} {Color.DIM}{installed} ✓{Color.RESET}")
+
+    if outdated:
+        print(f"\n  Updating {len(outdated)} tool(s)...")
+        run(["volta", "install", *outdated], check=True)
+    else:
+        print("  All tools are up to date.")
     return True
 
 
