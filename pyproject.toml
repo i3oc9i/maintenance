@@ -22,6 +22,6 @@ maintenance = "maintenance:main"
 dev = ["poethepoet"]
 
 [tool.poe.tasks]
-install = "uv tool install . --force"
+install = "uv tool install . --force --reinstall"
 clean = "rm -rf dist/ __pycache__/ *.egg-info/"
 build = "uv build"
