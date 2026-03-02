@@ -58,7 +58,7 @@ maintenance --version
 - **`require_cmd(cmd, label)`**: Uses `shutil.which()` to check command existence; prints error and returns `False` if missing.
 - **`confirm()` helper**: Gates each section behind a y/N prompt; bypassed in `--auto` mode.
 - **Cask filtering**: Uses `brew info --cask --json=v2` parsed with `json.loads()` — no `jq` dependency needed.
-- **Volta tools list**: Hardcoded `VOLTA_TOOLS` list — the canonical list of desired global JS tooling.
+- **Volta tools discovery**: Dynamically discovers installed tools via `volta list all --format plain` and reinstalls them — no hardcoded list.
 - **Pre-commit**: Operates on `~/.config/pre-commit/global-config.yaml`; self-heals by creating a `.git` dir if missing.
 - **TeeWriter**: Custom class wrapping stdout/stderr to also write ANSI-stripped text to a log file.
 - **Summary table**: Printed at the end showing each section's status (success/failed/skipped/dry-run) and elapsed time.

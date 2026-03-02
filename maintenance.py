@@ -122,17 +122,25 @@ def do_rust() -> bool:
     return True
 
 
-VOLTA_TOOLS = [
-    "node", "yarn", "pnpm", "bun", "deno", "vite", "vitest", "sv", "serve",
-    "typescript-language-server", "typescript", "skills", "repomix",
-    "get-shit-done-cc", "ccstatusline",
-]
-
-
 def do_volta() -> bool:
     if not require_cmd("volta", "Volta"):
         return False
-    run(["volta", "install", *VOLTA_TOOLS], check=True)
+
+    result = run(["volta", "list", "all", "--format", "plain"], capture_output=True, text=True)
+    tools = []
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == "package":
+            name = parts[1].split("@")[0]
+            if name:
+                tools.append(name)
+
+    if not tools:
+        print("  No Volta tools installed.")
+        return True
+
+    print(f"  Updating {len(tools)} tools: {', '.join(tools)}")
+    run(["volta", "install", *tools], check=True)
     return True
 
 

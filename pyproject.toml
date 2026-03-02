@@ -12,6 +12,9 @@ authors = [
     { name = "i3oc9i", email = "i3oc9i@icloud.com" }
 ]
 
+[project.urls]
+Repository = "https://github.com/i3oc9i/maintenance"
+
 [project.scripts]
 maintenance = "maintenance:main"
 
