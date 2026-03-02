@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "maintenance"
 version = "1.0.0"
 description = "macOS system maintenance orchestrator"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [
     { name = "i3oc9i", email = "i3oc9i@icloud.com" }
@@ -22,6 +22,6 @@ maintenance = "maintenance:main"
 dev = ["poethepoet"]
 
 [tool.poe.tasks]
-install = "uv tool install ."
+install = "uv tool install . --force"
 clean = "rm -rf dist/ __pycache__/ *.egg-info/"
 build = "uv build"

@@ -33,7 +33,6 @@ class Status(Enum):
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
-    DRY_RUN = "dry-run"
 
 
 @dataclass
@@ -59,8 +58,8 @@ def require_cmd(cmd: str, label: str) -> bool:
     return True
 
 
-def confirm(label: str, auto: bool) -> bool:
-    if auto:
+def confirm(label: str, run_all: bool) -> bool:
+    if run_all:
         return True
     try:
         response = input(f"{Color.BOLD_YELLOW}==> Run {label}? (y/N): {Color.RESET}")
@@ -171,25 +170,25 @@ SECTIONS: list[tuple[str, str, Callable[[], bool]]] = [
     ("pre-commit", "Pre-commit", do_pre_commit),
 ]
 
+# Aliases: "brew" expands to brew-formulae + brew-casks
+SECTION_ALIASES = {
+    "brew": ["brew-formulae", "brew-casks"],
+}
+
 SECTION_IDS = [s[0] for s in SECTIONS]
 
 
 # ------------------------------------------------------------------- Dispatcher
 def run_section(
-    id: str, label: str, fn: Callable[[], bool], *, auto: bool, dry_run: bool, only: list[str],
+    id: str, label: str, fn: Callable[[], bool], *, run_all: bool, only: list[str],
 ) -> SectionResult:
     # Section filter
     if only and id not in only:
         return SectionResult(id, label, Status.SKIPPED, 0.0)
 
-    # Confirm
-    if not confirm(label, auto):
+    # Confirm (skip prompt if sections were explicitly requested)
+    if not only and not confirm(label, run_all):
         return SectionResult(id, label, Status.SKIPPED, 0.0)
-
-    # Dry-run
-    if dry_run:
-        print(f"\n{Color.DIM}[dry-run] Would run: {label}{Color.RESET}")
-        return SectionResult(id, label, Status.DRY_RUN, 0.0)
 
     # Execute
     print(f"\n{Color.BOLD_GREEN}Updating {label}...{Color.RESET}")
@@ -274,12 +273,10 @@ def main(argv: list[str] | None = None) -> int:
         prog="maintenance",
         description="Orchestrates system maintenance tasks on macOS.",
     )
-    parser.add_argument("--auto", action="store_true", help="Run all sections without prompts")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would run without executing")
+    parser.add_argument("--all", action="store_true", dest="run_all", help="Run all sections without prompts")
     parser.add_argument(
-        "--section", action="append", dest="sections", metavar="NAME",
-        choices=SECTION_IDS,
-        help=f"Run only named section(s), repeatable. Names: {', '.join(SECTION_IDS)}",
+        "--section", dest="sections", metavar="NAME[,NAME,...]",
+        help=f"Run only named section(s), comma-separated. Names: {', '.join(SECTION_IDS)}. Aliases: {', '.join(SECTION_ALIASES)}",
     )
     parser.add_argument(
         "--log", nargs="?", const=True, default=None, metavar="PATH",
@@ -288,6 +285,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=f"maintenance v{version()}")
 
     args = parser.parse_args(argv)
+
+    # Validate and expand --section (resolve aliases like "brew" → brew-formulae,brew-casks)
+    if args.sections:
+        raw = [s.strip() for s in args.sections.split(",")]
+        valid_names = {*SECTION_IDS, *SECTION_ALIASES}
+        invalid = [s for s in raw if s not in valid_names]
+        if invalid:
+            parser.error(f"invalid section(s): {', '.join(invalid)}. Choose from: {', '.join(SECTION_IDS)}, {', '.join(SECTION_ALIASES)}")
+        expanded: list[str] = []
+        for s in raw:
+            expanded.extend(SECTION_ALIASES.get(s, [s]))
+        args.sections = expanded
 
     # Logging
     if args.log is not None:
@@ -300,19 +309,16 @@ def main(argv: list[str] | None = None) -> int:
         setup_logging(log_path)
 
     # Header
-    if args.auto:
-        print(f"{Color.BOLD_BLUE}--- SYSTEM MAINTENANCE (AUTO-PILOT MODE) ---{Color.RESET}")
+    if args.run_all or args.sections:
+        print(f"{Color.BOLD_BLUE}--- SYSTEM MAINTENANCE (AUTO MODE) ---{Color.RESET}")
     else:
         print(f"{Color.BOLD_BLUE}--- SYSTEM MAINTENANCE ORCHESTRATOR ---{Color.RESET}")
-    if args.dry_run:
-        print(f"{Color.DIM}(dry-run mode \u2014 no changes will be made){Color.RESET}")
-
     # Run sections
     results: list[SectionResult] = []
     for sid, label, fn in SECTIONS:
         result = run_section(
             sid, label, fn,
-            auto=args.auto, dry_run=args.dry_run, only=args.sections or [],
+            run_all=args.run_all, only=args.sections or [],
         )
         results.append(result)
 
