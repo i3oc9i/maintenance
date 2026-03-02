@@ -4,31 +4,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Single-file zsh script (`maintenance.sh`) that orchestrates system maintenance tasks on macOS. It sequentially offers to update: Homebrew formulae, Homebrew casks (auto-updating only), Rust toolchain + cargo binaries, Volta-managed Node/JS tools, and global pre-commit hooks.
+Single-file Python CLI tool (`maintenance.py`) that orchestrates system maintenance tasks on macOS. It sequentially offers to update: Homebrew formulae, Homebrew casks (auto-updating only), Rust toolchain + cargo binaries, Volta-managed Node/JS tools, and global pre-commit hooks. Installable globally via `uv tool install .`.
+
+## Installation
+
+```bash
+uv venv && uv pip install -e .   # editable dev install
+uv tool install .                 # global install
+```
 
 ## Running
 
 ```bash
 # Interactive mode — prompts y/N before each section
-./maintenance.sh
+maintenance
 
 # Auto-pilot mode — runs all sections without prompts
-./maintenance.sh --auto
+maintenance --auto
 
 # Preview what would run
-./maintenance.sh --auto --dry-run
+maintenance --auto --dry-run
 
 # Run specific section(s) only
-./maintenance.sh --section rust
-./maintenance.sh --section rust --section volta
+maintenance --section rust
+maintenance --section rust --section volta
 
 # Log output to file (ANSI-stripped)
-./maintenance.sh --auto --log
-./maintenance.sh --auto --log /tmp/maintenance.log
+maintenance --auto --log
+maintenance --auto --log /tmp/maintenance.log
 
 # Show help / version
-./maintenance.sh --help
-./maintenance.sh --version
+maintenance --help
+maintenance --version
 ```
 
 ## CLI Flags
@@ -44,13 +51,15 @@ Single-file zsh script (`maintenance.sh`) that orchestrates system maintenance t
 
 ## Key Design Details
 
-- **Shell**: zsh (not bash) — uses zsh-specific features like `local -a`, `(f)` flag, `${+commands[...]}` for command checks, and associative arrays.
+- **Python 3.12+, stdlib only**: No runtime dependencies. Uses `subprocess`, `json`, `argparse`, `shutil`, etc.
+- **Version**: Read from package metadata via `importlib.metadata.version("maintenance")`.
 - **Section functions**: Each section (`do_brew_formulae`, `do_brew_casks`, `do_rust`, `do_volta`, `do_pre_commit`) is a standalone function dispatched through `run_section`.
-- **`run_section(id, label, fn)` dispatcher**: Handles confirm gating, section filtering, dry-run, timing, and status tracking.
-- **`require_cmd(cmd, label)`**: Checks command existence before running a section; prints a clear error and skips if missing.
+- **`run_section(id, label, fn)` dispatcher**: Handles confirm gating, section filtering, dry-run, timing, and status tracking. Returns a `SectionResult` dataclass.
+- **`require_cmd(cmd, label)`**: Uses `shutil.which()` to check command existence; prints error and returns `False` if missing.
 - **`confirm()` helper**: Gates each section behind a y/N prompt; bypassed in `--auto` mode.
-- **Cask filtering**: Uses `brew info --cask --json=v2` piped through `jq` to find only casks with `auto_updates == true`. Guards against empty cask list.
-- **Volta tools list**: Hardcoded list of tools to reinstall/update — this is the canonical list of desired global JS tooling.
-- **Pre-commit**: Operates on `~/.config/pre-commit/global-config.yaml`; self-heals by creating a dummy `.git` dir if missing.
+- **Cask filtering**: Uses `brew info --cask --json=v2` parsed with `json.loads()` — no `jq` dependency needed.
+- **Volta tools list**: Hardcoded `VOLTA_TOOLS` list — the canonical list of desired global JS tooling.
+- **Pre-commit**: Operates on `~/.config/pre-commit/global-config.yaml`; self-heals by creating a `.git` dir if missing.
+- **TeeWriter**: Custom class wrapping stdout/stderr to also write ANSI-stripped text to a log file.
 - **Summary table**: Printed at the end showing each section's status (success/failed/skipped/dry-run) and elapsed time.
 - **Exit code**: Exits `1` if any section failed; `0` otherwise.
