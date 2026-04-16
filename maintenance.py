@@ -130,9 +130,9 @@ def do_volta() -> bool:
     for line in result.stdout.splitlines():
         parts = line.split()
         if len(parts) >= 2 and parts[0] == "package":
-            token = parts[1]  # e.g. "typescript@5.9.3"
+            token = parts[1]  # e.g. "typescript@5.9.3" or "@fission-ai/openspec@1.3.0"
             if "@" in token:
-                name, ver = token.split("@", 1)
+                name, ver = token.rsplit("@", 1)
                 if name:
                     tools[name] = ver
 
