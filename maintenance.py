@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -121,20 +122,45 @@ def do_rust() -> bool:
     return True
 
 
+def _latest_node_lts() -> str | None:
+    try:
+        with urllib.request.urlopen("https://nodejs.org/dist/index.json", timeout=10) as resp:
+            data = json.load(resp)
+    except Exception:
+        return None
+    for entry in data:
+        if entry.get("lts"):
+            return entry["version"].lstrip("v")
+    return None
+
+
+def _latest_npm_version(name: str) -> str | None:
+    result = run(["npm", "view", name, "version"], capture_output=True, text=True)
+    latest = result.stdout.strip()
+    if not latest or result.returncode != 0:
+        return None
+    return latest
+
+
 def do_volta() -> bool:
     if not require_cmd("volta", "Volta"):
         return False
 
     result = run(["volta", "list", "all", "--format", "plain"], capture_output=True, text=True)
-    tools: dict[str, str] = {}  # name → installed version
+    tools: dict[str, tuple[str, str]] = {}  # name → (kind, installed version)
     for line in result.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 2 and parts[0] == "package":
-            token = parts[1]  # e.g. "typescript@5.9.3" or "@fission-ai/openspec@1.3.0"
-            if "@" in token:
-                name, ver = token.rsplit("@", 1)
-                if name:
-                    tools[name] = ver
+        if len(parts) < 2:
+            continue
+        kind = parts[0]
+        if kind not in ("runtime", "package-manager", "package"):
+            continue
+        token = parts[1]  # e.g. "node@24.15.0", "yarn@4.14.1", "@fission-ai/openspec@1.3.0"
+        if "@" not in token:
+            continue
+        name, ver = token.rsplit("@", 1)
+        if name:
+            tools[name] = (kind, ver)
 
     if not tools:
         print("  No Volta tools installed.")
@@ -142,20 +168,26 @@ def do_volta() -> bool:
 
     print(f"  Checking {len(tools)} tools for updates...")
     outdated: list[str] = []
-    for name, installed in tools.items():
-        latest_result = run(
-            ["npm", "view", name, "version"],
-            capture_output=True, text=True,
-        )
-        latest = latest_result.stdout.strip()
-        if not latest or latest_result.returncode != 0:
-            print(f"    {name} {Color.DIM}{installed} → ??? (lookup failed, reinstalling){Color.RESET}")
+    for name, (kind, installed) in tools.items():
+        if kind == "runtime" and name == "node":
+            latest = _latest_node_lts()
+            label = "node (LTS)"
+        elif kind == "package-manager" and name == "yarn":
+            # Volta installs Yarn Berry; the `yarn` npm package is classic (1.x)
+            latest = _latest_npm_version("@yarnpkg/cli-dist")
+            label = "yarn (Berry)"
+        else:
+            latest = _latest_npm_version(name)
+            label = name
+
+        if latest is None:
+            print(f"    {label} {Color.DIM}{installed} → ??? (lookup failed, reinstalling){Color.RESET}")
             outdated.append(name)
         elif latest != installed:
-            print(f"    {name} {Color.BOLD_YELLOW}{installed} → {latest}{Color.RESET}")
+            print(f"    {label} {Color.BOLD_YELLOW}{installed} → {latest}{Color.RESET}")
             outdated.append(name)
         else:
-            print(f"    {name} {Color.DIM}{installed} ✓{Color.RESET}")
+            print(f"    {label} {Color.DIM}{installed} ✓{Color.RESET}")
 
     if outdated:
         print(f"\n  Updating {len(outdated)} tool(s)...")
