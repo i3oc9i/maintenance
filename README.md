@@ -1,6 +1,6 @@
 # maintenance
 
-macOS system maintenance orchestrator. Sequentially updates Homebrew formulae, Homebrew casks (auto-updating only), Rust toolchain + cargo binaries, Volta-managed Node/JS tools, and global pre-commit hooks.
+macOS system maintenance orchestrator. Sequentially updates Homebrew formulae, Homebrew casks (auto-updating only), Rust toolchain + cargo binaries, mise-managed runtimes and global npm packages, and global pre-commit hooks.
 
 ## Installation
 
@@ -19,7 +19,7 @@ maintenance --all
 
 # Run specific section(s) only
 maintenance --section rust
-maintenance --section rust,volta
+maintenance --section rust,mise
 
 # Log output to file (ANSI codes stripped in log)
 maintenance --all --log
@@ -34,7 +34,7 @@ maintenance --all --log /tmp/maintenance.log
 | `brew-formulae` | `brew update && brew upgrade && brew cleanup` |
 | `brew-casks` | Upgrades only casks with `auto_updates: true` |
 | `rust` | `rustup update` + `cargo install-update -a` |
-| `volta` | Reinstalls all currently installed global JS tools |
+| `mise` | `mise upgrade` + `mise prune -y` |
 | `pre-commit` | `pre-commit autoupdate` on global config |
 
 ## License

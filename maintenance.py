@@ -11,7 +11,6 @@ import shutil
 import subprocess
 import sys
 import time
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -122,78 +121,11 @@ def do_rust() -> bool:
     return True
 
 
-def _latest_node_lts() -> str | None:
-    try:
-        with urllib.request.urlopen("https://nodejs.org/dist/index.json", timeout=10) as resp:
-            data = json.load(resp)
-    except Exception:
-        return None
-    for entry in data:
-        if entry.get("lts"):
-            return entry["version"].lstrip("v")
-    return None
-
-
-def _latest_npm_version(name: str) -> str | None:
-    result = run(["npm", "view", name, "version"], capture_output=True, text=True)
-    latest = result.stdout.strip()
-    if not latest or result.returncode != 0:
-        return None
-    return latest
-
-
-def do_volta() -> bool:
-    if not require_cmd("volta", "Volta"):
+def do_mise() -> bool:
+    if not require_cmd("mise", "Mise"):
         return False
-
-    result = run(["volta", "list", "all", "--format", "plain"], capture_output=True, text=True)
-    tools: dict[str, tuple[str, str]] = {}  # name → (kind, installed version)
-    for line in result.stdout.splitlines():
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        kind = parts[0]
-        if kind not in ("runtime", "package-manager", "package"):
-            continue
-        token = parts[1]  # e.g. "node@24.15.0", "yarn@4.14.1", "@fission-ai/openspec@1.3.0"
-        if "@" not in token:
-            continue
-        name, ver = token.rsplit("@", 1)
-        if name:
-            tools[name] = (kind, ver)
-
-    if not tools:
-        print("  No Volta tools installed.")
-        return True
-
-    print(f"  Checking {len(tools)} tools for updates...")
-    outdated: list[str] = []
-    for name, (kind, installed) in tools.items():
-        if kind == "runtime" and name == "node":
-            latest = _latest_node_lts()
-            label = "node (LTS)"
-        elif kind == "package-manager" and name == "yarn":
-            # Volta installs Yarn Berry; the `yarn` npm package is classic (1.x)
-            latest = _latest_npm_version("@yarnpkg/cli-dist")
-            label = "yarn (Berry)"
-        else:
-            latest = _latest_npm_version(name)
-            label = name
-
-        if latest is None:
-            print(f"    {label} {Color.DIM}{installed} → ??? (lookup failed, reinstalling){Color.RESET}")
-            outdated.append(name)
-        elif latest != installed:
-            print(f"    {label} {Color.BOLD_YELLOW}{installed} → {latest}{Color.RESET}")
-            outdated.append(name)
-        else:
-            print(f"    {label} {Color.DIM}{installed} ✓{Color.RESET}")
-
-    if outdated:
-        print(f"\n  Updating {len(outdated)} tool(s)...")
-        run(["volta", "install", *outdated], check=True)
-    else:
-        print("  All tools are up to date.")
+    run(["mise", "upgrade"], check=True)
+    run(["mise", "prune", "-y"], check=True)
     return True
 
 
@@ -220,7 +152,7 @@ SECTIONS: list[tuple[str, str, Callable[[], bool]]] = [
     ("brew-formulae", "Homebrew Formulae", do_brew_formulae),
     ("brew-casks", "Homebrew Casks", do_brew_casks),
     ("rust", "Rust", do_rust),
-    ("volta", "Volta", do_volta),
+    ("mise", "Mise", do_mise),
     ("pre-commit", "Pre-commit", do_pre_commit),
 ]
 
