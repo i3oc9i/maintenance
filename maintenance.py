@@ -124,8 +124,11 @@ def do_rust() -> bool:
 def do_mise() -> bool:
     if not require_cmd("mise", "Mise"):
         return False
-    run(["mise", "upgrade"], check=True)
-    run(["mise", "prune", "-y"], check=True)
+    # Disable mise's TUI progress block so child-process output (npm warnings,
+    # reshim messages) can't desync the cursor-redraw and leave duplicate frames.
+    env = {**os.environ, "MISE_TERMINAL_PROGRESS": "false"}
+    run(["mise", "upgrade"], check=True, env=env)
+    run(["mise", "prune", "-y"], check=True, env=env)
     return True
 
 
