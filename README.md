@@ -1,6 +1,6 @@
 # maintenance
 
-macOS system maintenance orchestrator. Sequentially updates Homebrew formulae, Homebrew casks (auto-updating only), Rust toolchain + cargo binaries, mise-managed runtimes and global npm packages, and global pre-commit hooks.
+macOS system maintenance orchestrator. Sequentially updates Homebrew formulae, Homebrew casks (auto-updating only), Rust toolchain + cargo binaries, mise-managed runtimes and global npm packages, uv-installed tools, and global pre-commit hooks.
 
 ## Installation
 
@@ -35,6 +35,7 @@ maintenance --all --log /tmp/maintenance.log
 | `brew-casks` | Upgrades only casks with `auto_updates: true` |
 | `rust` | `rustup update` + `cargo install-update -a` |
 | `mise` | `mise upgrade` + `mise prune -y` |
+| `uv` | `uv tool upgrade --all` |
 | `pre-commit` | `pre-commit autoupdate` on global config |
 
 ## License

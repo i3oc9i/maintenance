@@ -132,6 +132,13 @@ def do_mise() -> bool:
     return True
 
 
+def do_uv() -> bool:
+    if not require_cmd("uv", "uv tools"):
+        return False
+    run(["uv", "tool", "upgrade", "--all"], check=True)
+    return True
+
+
 def do_pre_commit() -> bool:
     if not require_cmd("pre-commit", "Pre-commit"):
         return False
@@ -156,6 +163,7 @@ SECTIONS: list[tuple[str, str, Callable[[], bool]]] = [
     ("brew-casks", "Homebrew Casks", do_brew_casks),
     ("rust", "Rust", do_rust),
     ("mise", "Mise", do_mise),
+    ("uv", "uv tools", do_uv),
     ("pre-commit", "Pre-commit", do_pre_commit),
 ]
 
